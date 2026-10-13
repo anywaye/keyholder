@@ -9,8 +9,10 @@
 > the one judgement call in this packet — where the exchange lives — is the
 > thing a successor most needs to be able to disagree with on purpose. The
 > sections below it are the record. It named the service `registry` when it was
-> written; the service is now `keyholder`, and the argument below speaks of the
-> service under either name where it is quoting itself.
+> written, and it is now `keyholder` — so the argument below still says
+> `registry` wherever it is quoting the service it argued about, and everywhere
+> else the service is `keyholder`. The noun that did not change is the one that
+> matters: the registry the credential is FOR, ghcr.io.
 
 `keyholder` is the fleet's registry-credential exchange. It trades a box-bound,
 purpose-bound `registry.pull` capability for a short-lived, pull-only
@@ -78,11 +80,11 @@ instead of in a route changes nothing about who holds the key.
 There is a second, quieter reason: a route on `box` would make the credential's
 lifetime a property of the *control plane*, which is Cafaye-side, while the
 box it is minted for is the thing being installed. Keeping them apart is what
-lets `keyholder` be the only process that can hand out a pull credential, so an
+lets `registry` be the only process that can hand out a pull credential, so an
 audit of the fleet's registry material is one process, not a control plane with
 a registry-shaped feature.
 
-### Option (b) — a small standalone `keyholder` service — **CHOSEN**
+### Option (b) — a small standalone `registry` service — **CHOSEN**
 
 An extra service. In exchange:
 
@@ -92,7 +94,7 @@ An extra service. In exchange:
   capability of `box`;
 - `box` stays credential-free, and its boundaries are satisfied rather than
   interpreted;
-- `box` remains the one door that spends capabilities. `keyholder` *calls* that
+- `box` remains the one door that spends capabilities. `registry` *calls* that
   door rather than replacing it, so the single-use, purpose-bound, box-bound
   guarantees are enforced by the code that already enforces them
   (`Capability.redeem!`), and are not re-implemented — badly — in a second
@@ -111,7 +113,7 @@ Least code. It also reintroduces exactly the thing the capability posture exists
 to remove: a long-lived operator secret, living in an environment, handed to a
 service that does not need to be its owner. `kit`'s installer retired
 `KIT_SUBSTRATE_PULL_SECRET` in W2-P4 for this reason (`tests/substrate_test.sh`
-§13a still asserts the name is gone), and a `keyholder` service that takes the
+§13a still asserts the name is gone), and a `registry` service that takes the
 same value back is a rename.
 
 The distinction that makes (b) defensible is not "long-lived vs short-lived" —
