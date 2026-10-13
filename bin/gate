@@ -1,37 +1,54 @@
-#!/usr/bin/env ruby
-# frozen_string_literal: true
+#!/usr/bin/env bash
+#
+# bin/gate — keyholder's gate.
+#
+# The whole verification of this packet, and nothing else is needed: no
+# database, no network, no cluster. It builds the binary, vets the source,
+# formats it, and runs the suite.
+#
+#   ./bin/gate          run the whole gate
+#   ./bin/gate --help   this header
+#
+# Exit 0 means: the binary builds, `go vet ./...` is clean, gofmt has nothing
+# to say about the source, and `go test ./...` passes. Anything else is
+# nonzero with the failing step named.
 
-# The gate. Two things in it, both small on purpose: rubocop if the fleet's
-# config applies, and the suite. It is the same shape the fleet's gates take
-# (bin/prime) so a reader who knows one knows the other.
-require "fileutils"
+set -euo pipefail
 
-ROOT = File.expand_path("..", __dir__)
-FileUtils.chdir ROOT
+for arg in "$@"; do
+  case "$arg" in
+    -h | --help)
+      sed -n '3,18p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "bin/gate: unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
 
-failures = []
+cd "$(dirname "$0")/.."
 
-def run_step(command, failures)
-  puts "== #{command} =="
-  return true if system(command)
-
-  failures << command
-  false
-end
-
-# Style first — it is the cheapest failure and the one that hides the others.
-if Gem.loaded_specs.key?("rubocop")
-  run_step("bundle exec rubocop --no-color", failures)
-else
-  puts "== rubocop not installed (no .rubocop.yml yet) =="
-end
-
-run_step("bundle exec rake test", failures)
-
-if failures.empty?
-  puts "\nGATE GREEN"
-  exit 0
-else
-  puts "\nGATE RED: #{failures.join(', ')}"
+fail() {
+  printf '\n== gate RED: %s\n' "$1" >&2
   exit 1
-end
+}
+
+echo "== build =="
+go build -o bin/keyholder ./cmd/keyholder || fail "the binary does not build"
+
+echo "== vet =="
+go vet ./... || fail "go vet found problems"
+
+echo "== fmt =="
+unformatted="$(gofmt -l .)"
+if [ -n "$unformatted" ]; then
+  printf 'gofmt would rewrite:\n%s\n' "$unformatted" >&2
+  fail "the source is not gofmt-clean"
+fi
+
+echo "== test =="
+go test -count=1 ./... || fail "the suite is red"
+
+printf '\n== gate GREEN: build, vet, fmt, test ==\n'
