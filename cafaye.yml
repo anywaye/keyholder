@@ -1,4 +1,4 @@
-# cafaye.yml — the cafaye project manifest for registry.
+# cafaye.yml — the cafaye project manifest for keyholder.
 #
 # Conforms to core's frozen schema (cafaye/core: schemas/cafaye.manifest.schema.json).
 # Records the shape this service is built against; what it cannot express is
@@ -7,12 +7,20 @@
 # This is a new repository, created by the registry-capability-exchange packet
 # (see README.md for the option argument). It has no history, no tags, and no
 # `caf`-generated anything yet.
-name: registry
+#
+# It was named `registry` when this packet shipped and renamed to `keyholder`
+# in the same packet that reimplemented it in Go: the repository is
+# `cafaye/keyholder`, and a manifest whose `name` disagrees with its repository
+# is a manifest `pantry` resolves wrong. `registry` stays where it means the
+# registry the credential is FOR — ghcr.io, `registry.pull`, "registry
+# credential" — because that is a different noun from the service holding the
+# material.
+name: keyholder
 # One sentence on what the service is for, ≤200 characters — that cap is core's
 # schema, and `caf contract lint cafaye.yml` is the check that enforces it (the
 # first draft of this file was 205 and the linter said so).
 description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the fleet's only registry material."
-language: ruby
+language: go
 
 core: ^0.2.0
 
@@ -43,12 +51,12 @@ dependencies:
 # GitHub is not a cafaye service and so is not a manifest dependency: it is an
 # upstream authority, the way PostgreSQL is for every service in the fleet.
 # The App whose key this service holds is registered separately and its
-# id/installation id arrive in the environment (see config.ru).
+# id/installation id arrive in the environment (see cmd/keyholder).
 
 repository:
-  url: git@github.com:cafaye/registry.git
+  url: git@github.com:cafaye/keyholder.git
   visibility: private
 
 owner:
-  team: registry
-  contact: registry@cafaye.com
+  team: keyholder
+  contact: keyholder@cafaye.com
