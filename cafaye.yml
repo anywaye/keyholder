@@ -8,7 +8,10 @@
 # (see README.md for the option argument). It has no history, no tags, and no
 # `caf`-generated anything yet.
 name: registry
-description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the only registry source material in the fleet."
+# One sentence on what the service is for, ≤200 characters — that cap is core's
+# schema, and `caf contract lint cafaye.yml` is the check that enforces it (the
+# first draft of this file was 205 and the linter said so).
+description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the fleet's only registry material."
 language: ruby
 
 core: ^0.2.0
