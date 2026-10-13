@@ -3,9 +3,16 @@
 > thing a successor most needs to be able to disagree with on purpose. The
 > sections below it are the record.
 
-# registry — the capability exchange
+# keyholder — the capability exchange
 
-`registry` is the fleet's registry-credential exchange. It trades a box-bound,
+> **This file is the argument.** It is written before the code is read, because
+> the one judgement call in this packet — where the exchange lives — is the
+> thing a successor most needs to be able to disagree with on purpose. The
+> sections below it are the record. It named the service `registry` when it was
+> written; the service is now `keyholder`, and the argument below speaks of the
+> service under either name where it is quoting itself.
+
+`keyholder` is the fleet's registry-credential exchange. It trades a box-bound,
 purpose-bound `registry.pull` capability for a short-lived, pull-only
 dockerconfigjson.
 
@@ -18,17 +25,17 @@ That refusal is the whole reason for this service.
 
 A box presents its single-use, minutes-lived, box-bound capability to
 `POST /v1/registry-credentials`, as an `Authorization: Bearer`, with `box_id`
-in the body. `registry` spends that capability at `box`'s existing redeem route
+in the body. `keyholder` spends that capability at `box`'s existing redeem route
 — naming the purpose and the box it is being spent FOR — and `box` refuses an
 expired, already-redeemed, wrong-purpose or wrong-box capability *before the
-credential is minted*, with `box`'s own status and code, which `registry`
-passes through unchanged. On a successful spend, `registry` mints a GitHub App
+credential is minted*, with `box`'s own status and code, which `keyholder`
+passes through unchanged. On a successful spend, `keyholder` mints a GitHub App
 installation access token and answers the base64 dockerconfigjson. The
 capability is spent exactly once, and the credential appears in exactly one
 place: the HTTP response body.
 
 ```
-box                                       registry                        GitHub
+box                                       keyholder                      GitHub
  |  POST /v1/registry-credentials           |                               |
  |  Authorization: Bearer cap_…             |                               |
  |  {"box_id": "…"}                        |                               |
@@ -71,11 +78,11 @@ instead of in a route changes nothing about who holds the key.
 There is a second, quieter reason: a route on `box` would make the credential's
 lifetime a property of the *control plane*, which is Cafaye-side, while the
 box it is minted for is the thing being installed. Keeping them apart is what
-lets `registry` be the only process that can hand out a pull credential, so an
+lets `keyholder` be the only process that can hand out a pull credential, so an
 audit of the fleet's registry material is one process, not a control plane with
 a registry-shaped feature.
 
-### Option (b) — a small standalone `registry` service — **CHOSEN**
+### Option (b) — a small standalone `keyholder` service — **CHOSEN**
 
 An extra service. In exchange:
 
@@ -85,7 +92,7 @@ An extra service. In exchange:
   capability of `box`;
 - `box` stays credential-free, and its boundaries are satisfied rather than
   interpreted;
-- `box` remains the one door that spends capabilities. `registry` *calls* that
+- `box` remains the one door that spends capabilities. `keyholder` *calls* that
   door rather than replacing it, so the single-use, purpose-bound, box-bound
   guarantees are enforced by the code that already enforces them
   (`Capability.redeem!`), and are not re-implemented — badly — in a second
@@ -104,7 +111,7 @@ Least code. It also reintroduces exactly the thing the capability posture exists
 to remove: a long-lived operator secret, living in an environment, handed to a
 service that does not need to be its owner. `kit`'s installer retired
 `KIT_SUBSTRATE_PULL_SECRET` in W2-P4 for this reason (`tests/substrate_test.sh`
-§13a still asserts the name is gone), and a `registry` service that takes the
+§13a still asserts the name is gone), and a `keyholder` service that takes the
 same value back is a rename.
 
 The distinction that makes (b) defensible is not "long-lived vs short-lived" —
@@ -137,27 +144,37 @@ Short-lived, single-purpose, and invented under the conditions the brief names:
   permissions GitHub actually granted, and the exchange refuses a credential
   that can push (`credential_not_pull_only`). A posture with a runtime check
   behind it is a posture; one without is a comment.
-- **Never echoed.** `Minted#inspect` and `#to_s` render the redacted form, so
-  an interpolated value, a log line, or a stack trace carrying the credential
+- **Never echoed.** `Minted` implements `fmt.Formatter`, so EVERY formatting
+  verb renders the redacted form — and the token is an unexported field with no
+  accessor at all, which is the structural half of the guarantee. An
+  interpolated value, a log line, or a stack trace carrying the credential
   prints its shape and not its secret. The service's own logger records the
-  outcome and nothing else. `test/credential_safety_test.rb` asserts all of it,
-  including the negative control: no source file writes to stdout.
+  outcome and nothing else. `internal/registry/safety_test.go` asserts all of
+  it, including the negative control: no source file reaches for stdout.
 
 ## Dependencies, and the exception
 
 The fleet's rule (2026-10-13) is that a good existing library is the default
 and writing our own is the exception whose reason is written at the code site.
 
-- **`jwt`** — used, for the GitHub App JWT. It is *the* library for that.
-- **`net/http`** (stdlib) — used for the single installation-token request.
-  `octokit` would be the library-shaped answer, and it is a full GitHub API
-  client whose middleware, paginator and sawyer/faraday tree this service would
-  inherit to make exactly one request. The reason is written at the code site
-  in `lib/registry/authority.rb`.
-- **`rack`/`puma`/`rack-test`** — the runtime and the in-process HTTP driver,
-  so the exchange's suite tests the shipped code path rather than a mock.
+- **`golang-jwt/jwt/v5`** — used, for the GitHub App JWT. It is *the* RS256
+  library for Go, and the reason is written at the code site in
+  `internal/registry/authority.go`. The claims are the three GitHub documents
+  — `iss`, `iat`, `exp` — and RS256 is pinned rather than inferred.
+- **`net/http`, `net/http/httptest`, `encoding/json`, `crypto/*`** (stdlib) —
+  used for the single installation-token request, the redeem request, the HTTP
+  surface on `http.ServeMux`, and the in-process HTTP driver, so the suite
+  tests the shipped code path rather than a mock. `octokit`'s Go equivalent
+  (`go-github`) would be the library-shaped answer for the one request, and it
+  is a full GitHub API client whose paginator, middleware and own dependency
+  tree this service would inherit to make exactly one call. The reason is
+  written at the code site, as the fleet's rule requires.
+- **deliberately NOT a dependency**: no GitHub API client, no router package,
+  no web framework. Three routes do not need one, and every extra dependency is
+  one more thing that must be vetted before it can hold the fleet's registry
+  material.
 
-No database. No ActiveRecord. The capability is `box`'s row, not ours, and the
+No database, no ORM, no cache. The capability is `box`'s row, not ours, and the
 credential is minted per request and never stored.
 
 ## Running it
@@ -165,12 +182,19 @@ credential is minted per request and never stored.
 ```sh
 export REGISTRY_BOX_URL=https://box.svc.cafaye.test
 export REGISTRY_GITHUB_APP_ID=123456
-export REGISTRY_GITHUB_APP_KEY="$(cat cafe-registry.pem)"
+export REGISTRY_GITHUB_APP_KEY_FILE=/var/run/secrets/cafaye/app-key.pem
 export REGISTRY_GITHUB_INSTALLATION_ID=987654
-bundle exec puma -p 9292
+./bin/keyholder            # or: go run ./cmd/keyholder
 ```
 
-`bin/prime` runs the gate. `test/` is the suite.
+`REGISTRY_GITHUB_APP_KEY` (the PEM itself, in the environment) is still
+accepted; the mounted file is preferred, because a value in an environment is
+readable by anything that can read `/proc` for the process. `PORT` defaults to
+9292, `REGISTRY_REGISTRY_HOST` to `ghcr.io`.
+
+`./bin/gate` runs the gate: it builds the binary, runs `go vet ./...`, checks
+the source is gofmt-clean, and runs `go test ./...`. No database, no network, no
+cluster — the only verification this packet needs.
 
 ## The contract
 
@@ -212,13 +236,15 @@ way twice.
 a socket, and prints a transcript with the credential redacted:
 
 ```
-box      real Rails (RAILS_ENV=test, its own database) — mints with
-         Capability.mint!, spends through the real
-         POST /v1/capabilities/redeem route
-registry the real config.ru + Registry::Exchange, under puma
-github   a socket stub that answers
-         POST /app/installations/:id/access_tokens and VERIFIES the App's
-         RS256 assertion against the public half of the key the service holds
+box        real Rails (RAILS_ENV=test, its own database) — mints with
+           Capability.mint!, spends through the real
+           POST /v1/capabilities/redeem route
+keyholder  the real ./bin/keyholder binary, built by the gate, with
+           registry.NewExchange configured exactly as cmd/keyholder
+           configures it in production
+github     a socket stub that answers
+           POST /app/installations/:id/access_tokens and VERIFIES the App's
+           RS256 assertion against the public half of the key the service holds
 ```
 
 Only GitHub is faked, and it is faked at the wire boundary. The capability is
@@ -226,6 +252,9 @@ minted by box's own code; the spend, the redemption and the credential are all
 real HTTP against the real routes. Minting is the one step the HTTP surface
 cannot perform on its own — it is a claimed account member's flow, and the
 member is `identity`.
+
+The proof needs box's Rails app and a database, so it is not part of the gate:
+the gate is the suite, and the proof is what a manager runs end to end.
 
 ```
 $ BOX_DIR=../box ruby script/exchange_proof
@@ -268,6 +297,9 @@ PROOF GREEN — the receipt-to-credential path ran end to end, and every refusal
 
 Every one of those refusals is `box`'s status and `box`'s error code, passed
 through: the exchange does not spend a capability it cannot verify, and it
-never invents a reason box did not give it. Note what the transcript does NOT
+never invents a reason box did not give it. The service's log line still names
+itself `registry.credential_exchange`, and that is not an oversight — it is the
+one word in the output that means what it always meant, changed only in the
+manifest and the repository name. Note what the transcript does NOT
 contain, on either side: the capability token, the dockerconfigjson, and the
 installation token. The only copy of the credential is the response body.

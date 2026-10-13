@@ -9,9 +9,9 @@
 #              its own. The capability is MINTED by `Capability.mint!` and
 #              SPENT by `CapabilitiesController#redeem` through the real
 #              `POST /v1/capabilities/redeem` route.
-#   registry — the real Rack app (`config.ru`), under puma, with
-#              `Registry::Exchange` configured exactly as config.ru
-#              configures it in production.
+#   keyholder — the real Go binary (`./bin/keyholder`, built by `./bin/gate`),
+#              with `registry.NewExchange` configured exactly as
+#              `cmd/keyholder` configures it in production.
 #   github   — a stub on a socket that answers `POST
 #              /app/installations/:id/access_tokens` and VERIFIES the App's
 #              RS256 assertion against the public half of the key the
@@ -133,10 +133,28 @@ class FakeGithub
 end
 
 # ---------------------------------------------------------------------------
-# The real registry app, under puma, configured the way config.ru configures.
+# The real keyholder binary — ./bin/keyholder, the one ./bin/gate builds —
+# configured the way cmd/keyholder reads the environment in production.
+#
+# It is built here if it is not already on disk, so the proof runs against the
+# shipped artifact rather than a `go run` that could differ from the gate's.
 # ---------------------------------------------------------------------------
-def start_registry(key_file)
-  log = File.join(ROOT, "tmp", "proof-registry.log")
+def build_keyholder
+  binary = File.join(ROOT, "bin", "keyholder")
+  return binary if File.exist?(binary) && File.executable?(binary) && !ENV["KEYHOLDER_REBUILD"]
+
+  say "== building bin/keyholder (go build ./cmd/keyholder) =="
+  output, status = Bundler.with_unbundled_env do
+    Open3.capture2e({ "GOFLAGS" => "" }, "go", "build", "-o", binary, "./cmd/keyholder", chdir: ROOT)
+  end
+  unless status.exitstatus.zero?
+    fail_run("keyholder would not build:\n#{output.lines.last(15).join}")
+  end
+  binary
+end
+
+def start_keyholder(binary, key_file)
+  log = File.join(ROOT, "tmp", "proof-keyholder.log")
   env = {
     "REGISTRY_BOX_URL" => "http://127.0.0.1:#{BOX_PORT}",
     "REGISTRY_GITHUB_APP_ID" => "123456",
@@ -147,12 +165,11 @@ def start_registry(key_file)
     "PORT" => REGISTRY_PORT.to_s
   }
   pid = Bundler.with_unbundled_env do
-    Process.spawn(env, "bundle", "exec", "puma", "-p", REGISTRY_PORT.to_s, "-e", "production",
-      chdir: ROOT, out: log, err: log)
+    Process.spawn(env, binary, chdir: ROOT, out: log, err: log)
   end
   $children << pid
   wait_port(REGISTRY_PORT, log)
-  say "== registry is serving on #{REGISTRY_PORT} (the real config.ru, under puma) =="
+  say "== keyholder is serving on #{REGISTRY_PORT} (the real binary, built by the gate) =="
   pid
 end
 
@@ -318,13 +335,13 @@ File.write(key_file, key.to_pem)
 
 say "# The receipt-to-credential path, measured"
 say "#   box      http://127.0.0.1:#{BOX_PORT}   real Rails, RAILS_ENV=test, its own database"
-say "#   registry http://127.0.0.1:#{REGISTRY_PORT}   real config.ru + Registry::Exchange, under puma"
+say "#   keyholder http://127.0.0.1:#{REGISTRY_PORT}   the real ./bin/keyholder binary, built by the gate"
 say "#   github   http://127.0.0.1:#{GITHUB_PORT}   a stub that verifies the App's RS256 assertion"
 say
 
 github = FakeGithub.new(key.public_key).start
 prepare_box_db
-start_registry(key_file)
+build_keyholder.then { |binary| start_keyholder(binary, key_file) }
 start_box
 tokens = mint_capabilities
 
@@ -383,11 +400,11 @@ check.call("the code is capability_wrong_purpose", wrong_purpose_body.dig("error
 
 say
 say "== 6. the credential appears in exactly one place: the response body =="
-registry_log = File.read(File.join(ROOT, "tmp", "proof-registry.log"))
-say "   registry's own log lines:"
-registry_log.to_s.lines.each { |line| say "     #{line.rstrip}" }
-check.call("the credential is nowhere in the registry's log", !registry_log.to_s.include?(password.to_s))
-check.call("the registry's log names the outcome, not the credential", registry_log.to_s.include?("registry.credential_exchange"))
+keyholder_log = File.read(File.join(ROOT, "tmp", "proof-keyholder.log"))
+say "   keyholder's own log lines:"
+keyholder_log.to_s.lines.each { |line| say "     #{line.rstrip}" }
+check.call("the credential is nowhere in keyholder's log", !keyholder_log.to_s.include?(password.to_s))
+check.call("keyholder's log names the outcome, not the credential", keyholder_log.to_s.include?("registry.credential_exchange"))
 pasted = Base64.strict_encode64(JSON.generate(auths: { "ghcr.io" => { auth: "ZmFrZQ==" } }))
 pasted_response = exchange(pasted, box_id: BOX_ID)
 check.call("a dockerconfigjson pasted where a capability belongs is refused", pasted_response.code == "400", pasted_response.code)

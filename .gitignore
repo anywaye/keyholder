@@ -4,3 +4,6 @@ log/
 tmp/
 .env
 coverage/
+
+# The gate builds the binary it runs; the binary is not a source artifact.
+bin/keyholder
