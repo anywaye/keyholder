@@ -1,0 +1,51 @@
+# cafaye.yml — the cafaye project manifest for registry.
+#
+# Conforms to core's frozen schema (cafaye/core: schemas/cafaye.manifest.schema.json).
+# Records the shape this service is built against; what it cannot express is
+# written down here rather than fudged.
+#
+# This is a new repository, created by the registry-capability-exchange packet
+# (see README.md for the option argument). It has no history, no tags, and no
+# `caf`-generated anything yet.
+name: registry
+description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the only registry source material in the fleet."
+language: ruby
+
+core: ^0.2.0
+
+# ABSENT, for the same reason box's manifest records (box/cafaye.yml): the only
+# OpenAPI document in the fleet that would describe this surface does not exist
+# yet, and naming a path that is not true is worse than omitting one. The
+# contract is in README.md and is asserted by the suite; an
+# `exposes: {api: …}` becomes honest the moment a document is written for
+# `POST /v1/registry-credentials`, and not before.
+#
+# `exposes` has `minProperties: 1`, so there is no empty form to write even for
+# a service that had decided to declare nothing.
+
+# Empty rather than absent: this service publishes no event types. It is a
+# request/response exchange with no bus traffic, and an empty list is the claim
+# that this was checked rather than never considered.
+consumes: []
+
+# `box` is required, and it is the only dependency. A registry service that
+# cannot reach box cannot spend the capability that is the whole reason it is
+# called, so `required: false` would be a lie about the failure mode: every
+# request would fail closed.
+dependencies:
+  - name: box
+    version: ^0.1.0
+    required: true
+
+# GitHub is not a cafaye service and so is not a manifest dependency: it is an
+# upstream authority, the way PostgreSQL is for every service in the fleet.
+# The App whose key this service holds is registered separately and its
+# id/installation id arrive in the environment (see config.ru).
+
+repository:
+  url: git@github.com:cafaye/registry.git
+  visibility: private
+
+owner:
+  team: registry
+  contact: registry@cafaye.com
