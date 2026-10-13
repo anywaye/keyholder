@@ -7,6 +7,8 @@ require "json"
 require "base64"
 require "time"
 
+require "registry/minted"
+
 module Registry
   # The registry authority — the ONLY place in the fleet that holds registry
   # source material, and the reason option (b) was chosen over option (a).

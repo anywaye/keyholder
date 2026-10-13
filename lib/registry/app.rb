@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 require "json"
+# The entry point owns the whole dependency graph. `net/http`, `openssl` and
+# `jwt` are required by the files that use them (Box, Authority), not here.
+require "registry/exchange"
+require "registry/authority"
 
 module Registry
   # The HTTP surface: one exchange route and a health check. Nothing else.

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "registry/box"
+
 module Registry
   # The exchange: a box-bound, purpose-bound capability in; a short-lived
   # pull-only dockerconfigjson out. Exactly one spend per capability, and the

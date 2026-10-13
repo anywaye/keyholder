@@ -12,11 +12,12 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 # code that ships.
 require "minitest/autorun"
 require "rack/test"
+require "openssl"
 
-require "registry/authority"
-require "registry/minted"
-require "registry/box"
-require "registry/exchange"
+# ONLY the entry point the production process loads. Every dependency is
+# pulled in transitively by that one file, so a missing `require` — the bug
+# the end-to-end run found, where `Registry::Box` was reachable from the
+# suite but not from the app — fails here rather than on a customer's box.
 require "registry/app"
 
 module RegistryTest
