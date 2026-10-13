@@ -205,3 +205,69 @@ way twice.
   capability spending is `box`'s; this service forwards and trusts the answer
   it gets back, which is the same division of labour `box` follows with
   `identity`.
+
+## The measurement
+
+`script/exchange_proof.rb` runs the whole path with every shipped component on
+a socket, and prints a transcript with the credential redacted:
+
+```
+box      real Rails (RAILS_ENV=test, its own database) — mints with
+         Capability.mint!, spends through the real
+         POST /v1/capabilities/redeem route
+registry the real config.ru + Registry::Exchange, under puma
+github   a socket stub that answers
+         POST /app/installations/:id/access_tokens and VERIFIES the App's
+         RS256 assertion against the public half of the key the service holds
+```
+
+Only GitHub is faked, and it is faked at the wire boundary. The capability is
+minted by box's own code; the spend, the redemption and the credential are all
+real HTTP against the real routes. Minting is the one step the HTTP surface
+cannot perform on its own — it is a claimed account member's flow, and the
+member is `identity`.
+
+```
+$ BOX_DIR=../box ruby script/exchange_proof
+== minted four capabilities through Capability.mint! (Capability::TTL_MINUTES = 15) ==
+   live         cap_bd418bd8…bd25 (68 bytes)
+   expired      cap_386c9e64…99ca (68 bytes)
+   otherbox     cap_3c413f0f…d349 (68 bytes)
+   wrongpurpose cap_9c45d9dc…27a8 (68 bytes)
+
+== 1. a live capability buys a short-lived, pull-only credential =="
+   exchange(LIVE capability, this box)
+     status  200
+     registry           ghcr.io
+     expires_at         2026-10-13T06:15:44Z
+     seconds_remaining  3599
+     dockerconfigjson   eyJhdXRocyI6eyJnaGNy… (192 bytes, base64)
+     decoded            {"auths":{"ghcr.io":{"username":"x-access-token","password":"<REDACTED 66-byte installation token>","email":""}}}
+
+== 2. the SAME capability cannot buy a second credential ==
+     status  409
+     error   capability_redeemed — capability has already been redeemed
+
+== 3. an expired capability is refused ==
+     status  410
+     error   capability_expired — capability has expired
+
+== 4. a capability for another box is refused ==
+     status  403
+     error   capability_wrong_box — capability is bound to a different box
+
+== 5. a capability minted for another purpose is refused ==
+     status  403
+     error   capability_wrong_purpose — capability is minted for a different purpose
+
+== 6. the credential appears in exactly one place: the response body ==
+   {"event":"registry.credential_exchange","status":200,"box_id":"aaa…","note":"Minted(registry=ghcr.io, expires_at=2026-10-13T06:15:44Z, seconds_remaining=3599, pull_only=true, permissions=packages)"}
+   …
+PROOF GREEN — the receipt-to-credential path ran end to end, and every refusal is the refusal named.
+```
+
+Every one of those refusals is `box`'s status and `box`'s error code, passed
+through: the exchange does not spend a capability it cannot verify, and it
+never invents a reason box did not give it. Note what the transcript does NOT
+contain, on either side: the capability token, the dockerconfigjson, and the
+installation token. The only copy of the credential is the response body.
