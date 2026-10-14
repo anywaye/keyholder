@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -113,11 +114,7 @@ func NewTokenMinter(config Config) (TokenMinter, error) {
 }
 
 func asAuthorityError(err error, target **AuthorityError) bool {
-	if authErr, ok := err.(*AuthorityError); ok {
-		*target = authErr
-		return true
-	}
-	return false
+	return errors.As(err, target)
 }
 
 // unavailableAuthority is the minter a misconfigured environment gets: it holds
