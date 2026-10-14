@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,10 +36,7 @@ const (
 	testInstallationToken = "ghs_realtokenvalue"
 )
 
-var (
-	testCapability      = "cap_" + strings.Repeat("a", 64)
-	testOtherCapability = "cap_" + strings.Repeat("b", 64)
-)
+var testCapability = "cap_" + strings.Repeat("a", 64)
 
 // testKey is a real RSA key, so Authority's parsing, validation and RS256
 // signing are the shipped ones. 2048 bits is GitHub's floor for App keys.
@@ -267,7 +265,8 @@ func refusalOf(t *testing.T, err error) *Refusal {
 	if err == nil {
 		t.Fatal("expected a refusal, got none")
 	}
-	if refusal, ok := err.(*Refusal); ok {
+	var refusal *Refusal
+	if errors.As(err, &refusal) {
 		return refusal
 	}
 	t.Fatalf("expected a *Refusal, got %T: %v", err, err)

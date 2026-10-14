@@ -76,8 +76,8 @@ func (a *App) exchange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	credential, err := a.exch.Call(ctx, capability, boxID)
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		// The credential's shape is what gets logged, never its value: the
 		// redacted form carries everything an operator needs to confirm the
 		// exchange worked, and nothing a registry could be handed.

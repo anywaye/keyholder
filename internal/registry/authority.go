@@ -68,7 +68,7 @@ type TokenMinter interface {
 }
 
 // AuthorityError is an authority failure: the environment is not configured, or
-// GitHub would not answer. It is deliberately unrecognisable from the outside —
+// GitHub would not answer. It is deliberately unrecognizable from the outside —
 // an operator is told the authority failed and nothing about the material.
 type AuthorityError struct {
 	Kind    string // "misconfigured" or "upstream"
@@ -141,7 +141,7 @@ func parseRSAPrivateKey(pemText string) (*rsa.PrivateKey, error) {
 	}
 	parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("neither PKCS#1 nor PKCS#8: %v", err)
+		return nil, fmt.Errorf("neither PKCS#1 nor PKCS#8: %w", err)
 	}
 	key, ok := parsed.(*rsa.PrivateKey)
 	if !ok {

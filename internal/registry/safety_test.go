@@ -232,7 +232,11 @@ func TestTheResponseCarriesTheCredentialAndItsLifetime(t *testing.T) {
 func TestAnUnknownRouteIsA404AndHealthIsA200(t *testing.T) {
 	server, _, _, _ := defaultApp(t)
 
-	response, err := http.Get(server.URL + "/healthz")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/healthz", nil)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("health: %v", err)
 	}

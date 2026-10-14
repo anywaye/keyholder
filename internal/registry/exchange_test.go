@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -422,8 +423,8 @@ func TestAnAuthorityThatIsMisconfiguredAnswersAtRequestTimeRatherThanDying(t *te
 			if err == nil {
 				t.Fatalf("expected a misconfigured authority to be refused")
 			}
-			authorityErr, ok := err.(*AuthorityError)
-			if !ok {
+			var authorityErr *AuthorityError
+			if !errors.As(err, &authorityErr) {
 				t.Fatalf("expected an *AuthorityError, got %T", err)
 			}
 			if !authorityErr.Misconfigured() {
@@ -445,10 +446,12 @@ func TestAnUnavailableAuthorityIsARefusalNotACrash(t *testing.T) {
 	if err == nil {
 		t.Fatal("a misconfigured authority must refuse")
 	}
-	if _, isRefusal := err.(*Refusal); isRefusal {
+	var isRefusal *Refusal
+	if errors.As(err, &isRefusal) {
 		t.Fatal("an authority failure is not an exchange refusal: the HTTP surface answers it")
 	}
-	if _, ok := err.(*AuthorityError); !ok {
+	var authorityErr *AuthorityError
+	if !errors.As(err, &authorityErr) {
 		t.Fatalf("expected an *AuthorityError, got %T", err)
 	}
 	assertNoGitHub(t, github, "a misconfigured authority must not dial GitHub")
@@ -469,8 +472,8 @@ func TestAGitHubFailureIsAnAuthorityErrorCarryingNoSecret(t *testing.T) {
 			}, nil)
 
 			_, err := mustCall(t, exchange, testCapability, testBoxID)
-			authorityErr, ok := err.(*AuthorityError)
-			if !ok {
+			var authorityErr *AuthorityError
+			if !errors.As(err, &authorityErr) {
 				t.Fatalf("expected an *AuthorityError, got %T: %v", err, err)
 			}
 			if !strings.Contains(authorityErr.Error(), "GitHub answered") {
@@ -498,8 +501,8 @@ func TestAGitHubAnswerMissingItsTokenIsAnAuthorityError(t *testing.T) {
 			}, nil)
 
 			_, err := mustCall(t, exchange, testCapability, testBoxID)
-			authorityErr, ok := err.(*AuthorityError)
-			if !ok {
+			var authorityErr *AuthorityError
+			if !errors.As(err, &authorityErr) {
 				t.Fatalf("expected an *AuthorityError, got %T: %v", err, err)
 			}
 			if !strings.Contains(authorityErr.Error(), tc.want) {
