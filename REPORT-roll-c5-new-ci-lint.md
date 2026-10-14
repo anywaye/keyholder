@@ -93,7 +93,9 @@ load Gem.bin_path('rubocop', 'rubocop')
 
 The config is not copied; it is resolved the way the Go gates do — `.kit` in CI, `../kit` locally — and the wrapper **fails when the config is absent** rather than falling back to the weaker `.rubocop.yml` that inherited `rubocop-rails-omakase`. `--parallel` is the fleet's shape; kit's `ruby` job runs the same flags. The version is the bundle's (`rubocop 1.91.0`, `rubocop-rails 2.38.0`, `rubocop-rails-omakase 1.1.0` in `Gemfile.lock`), so CI and the worktree agree without a second pin.
 
-**`config/ci.rb`** and `.github/workflows/ci.yml` (`gate (bin/ci)`) are **unchanged** — `bin/ci` already calls `bin/rubocop`, and `bin/rubocop` now runs kit's config, so the gate inherits the policy without a second edit. The CI `gate` job already provides the two things `bin/ci` needs (Postgres `postgres:17-alpine` with healthcheck `pg_isready`, `libpq-dev` before `setup-ruby`, `bundler-cache: true`), so no install step was added for Ruby.
+**`config/ci.rb`** is **unchanged** — `bin/ci` already calls `bin/rubocop`, and `bin/rubocop` now runs kit's config, so the gate inherits the policy without a second edit.
+
+`.github/workflows/ci.yml` (`gate (bin/ci)`) **gained the kit checkout** the new wrapper requires: a sparse checkout of `cafaye/kit` at `.kit/lint` (the same step `keyholder`'s gate carries for `golangci.yml`). The CI `gate` job already provided Postgres `postgres:17-alpine` with healthcheck `pg_isready`, `libpq-dev` before `setup-ruby`, and `bundler-cache: true`; it now also provides `.kit/lint/rubocop.yml` so `bin/rubocop` finds the fleet policy the way `keyholder` finds its `golangci.yml`. Without it `bin/rubocop` would fail with "kit's lint config not found" rather than silently falling back to the weaker `.rubocop.yml` that let the gate stay green while CI reported 3614.
 
 `.rubocop.yml` is **left in place** but is no longer consulted when `--config` is given. It still exists for `bundle exec rubocop` without the wrapper, which is a known divergence the gate's header names; the gate is the proof, not the file.
 
@@ -317,9 +319,11 @@ What to expect (measured locally, same versions CI will install):
 ```
 keyholder  branch roll/c5-new-ci-lint  (this worktree: wt/roll-c5-new-ci-lint)
   8e18cf5  mise.toml, .github/workflows/ci.yml, bin/gate, 5 Go source files (8 findings -> 0)
+  8983f44  REPORT-roll-c5-new-ci-lint.md (this file)
 box        branch roll/c5-new-ci-lint  (worktree: cafaye/box, branch created for this packet)
   bf7b0b7  bin/rubocop + 100 files -> 3614 -> 137 (mechanical autocorrect, reviewed)
   4c52654  46 files -> 137 -> 0 (judgement, inline disables with reason, per file)
+  2200e03  .github/workflows/ci.yml — gate provides kit lint config (.kit) for the wrapper
 ```
 
 Both branches are committed and clean. Nothing was merged and nothing was pushed. No other repository's workflows were touched.
