@@ -1,0 +1,41 @@
+image:
+  repository: ghcr.io/cafaye/keyholder
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: ghcr-pull-secret
+
+secretName: keyholder-secrets
+
+replicas: 1
+
+service:
+  type: ClusterIP
+  port: 9292
+
+ingress:
+  enabled: true
+  className: traefik
+  clusterIssuer: letsencrypt-prod
+  tls: true
+  host: registry.svc.cafaye.com
+  path: /
+  pathType: Prefix
+
+env:
+  PORT: "9292"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+targetRevision: master
+namespace: keyholder
