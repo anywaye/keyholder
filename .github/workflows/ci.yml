@@ -1,0 +1,99 @@
+---
+# keyholder's CI: kit's shared workflow, plus the half kit cannot own.
+#
+# The skeleton is `cafaye/gateway`'s — the fleet's other Go service — because
+# keyholder is Go, and kit's `language:` input is the mechanism that keeps a Go
+# service on the Go job rather than on one belonging to a different toolchain.
+# What was copied is the *shape*: a `ci` job that calls kit's reusable workflow,
+# and a service job that runs this repository's own gate. What was not copied is
+# gateway's `prime` job, because keyholder has no `bin/prime`, no `mise.toml`,
+# no `kit.ref`, and no `golangci-lint` step in its gate — see below.
+#
+# This repository had no `.github/workflows/` at all until this file, so nothing
+# here has ever been gated on a push. The gate is `bin/gate`, and it needs no
+# database, no cluster and no network: it builds the binary, vets and formats the
+# source, and runs the suite. `bin/gate` is not reimplemented anywhere in this
+# file; the job runs it, which is the only way the CI path and the developer's
+# command can be known to agree.
+#
+# THE TRIGGER IS WRITTEN EXPLICITLY, unlike gateway's terse
+# `on: [push, pull_request]`. A bare `push:` fires on every branch, and the
+# fleet's convention — and the guard that `roll-c5-pantry-trigger` /
+# `roll-c5-workflow-lint` call for — is a `push` named on the default branch.
+# `master` is this repository's default branch (`git branch --show-current` on
+# the primary worktree).
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Least privilege for the whole file. kit's reusable workflow declares the same,
+# and a caller should not widen what it is granted by accident.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -------------------------------------------------------------- shared half
+  # `language: go` runs download, build, golangci-lint against kit's config,
+  # `go test -race -count=1 ./...` and a coverage floor. It is the same work
+  # `bin/gate` does, plus the linter kit owns; a fix to the toolchain or the lint
+  # policy reaches this repository on its next run without a PR here.
+  ci:
+    name: ci (kit)
+    uses: cafaye/kit/.github/workflows/ci.reusable.yml@master
+    with:
+      language: go
+      working-dir: .
+      # The pin, passed rather than defaulted. kit reads
+      # `fromJSON(inputs.versions).go || 'stable'`, so an absent key is not "use
+      # our pin" but "install whatever Go the runner ships this week". The pin of
+      # record is `go.mod`, which the compiler enforces and which
+      # `bin/gate` builds against; `gateway` states the same number the same way.
+      versions: '{"go":"1.26.1"}'
+
+  # ------------------------------------------------- the gate a developer runs
+  # Done means `bin/gate` is the gate and it is the same command locally and in
+  # CI. kit's `go` job is the same *kind* of work, but not the same command: a
+  # gate nobody runs is a gate nobody maintains, and this job is what keeps the
+  # two true. It is also the job whose red is the repository's red — kit's job is
+  # the shared contract, this one is the repository's own.
+  gate:
+    name: bin/gate
+    runs-on: ubuntu-latest
+    # 15, and not GitHub's 360-minute default: a hung job burns billing hours.
+    # The gate is a Go build, a vet, a gofmt check and the suite — minutes of
+    # work — so 15 is a ceiling a healthy run never reaches.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # `go-version-file: go.mod` rather than a literal version: the pin lives in
+      # `go.mod` (which the compiler enforces), and a literal here would be a
+      # second copy for CI to disagree with. `bin/gate` ends in `go build` and
+      # `go test`, so the toolchain must be on PATH before the gate runs.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: bin/gate
+        # One line, the ordinary spelling. `bin/gate` builds, vets, formats and
+        # runs the suite, and exits nonzero — naming the failing step — the
+        # moment any of them is red. There is no `|| true` and no
+        # `continue-on-error`: a gate that cannot fail the job is a gate that
+        # says nothing.
+        run: ./bin/gate
+      - name: go.mod and go.sum are untouched
+        # The lockfile guard for this repository. `bin/gate` runs `go build` and
+        # `go test`, and neither rewrites the manifests — but a `go get` or a
+        # `go mod tidy` left in a dependency bump would resolve a different tree
+        # than the one that was committed, and the run would stay green while
+        # doing it. Go's equivalent of `--frozen-lockfile` does not exist, so this
+        # is the cheap check that stands in for it.
+        run: |
+          git diff --exit-code -- go.mod go.sum \
+            || { echo "bin/gate moved go.mod or go.sum — the build is no longer against the committed tree"; exit 1; }
