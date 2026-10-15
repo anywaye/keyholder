@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+#
+# bin/chart-test — keyholder's chart test.
+#
+#   ./bin/chart-test   render chart/ with helm and assert the Deployment
+#                      names the published image two ways
+#
+# WHAT IT IS: the render half of the image-digest adoption, made continuous.
+# The template renders `repository@digest` when `image.digest` is set and
+# `repository:tag` when it is not; this renders the chart with helm and
+# asserts both arms, plus the refusal of a malformed digest. It is run by
+# `bin/gate` (step "chart"), so the two renders the packet buys are proven
+# by the gate the repository already runs, locally and in CI.
+#
+# WHAT IT ASSERTS:
+#   1. `helm template` with the committed values renders the Deployment,
+#      and the container image is the published repository at the committed
+#      digest — the digest READ from the same values.yaml the template
+#      renders, never typed in this file.
+#   2. THE CASE ARGO'S DIFF READS: a CHANGED digest changes the rendered
+#      image text. That is the whole purchase — the tag was identical before
+#      and after a build, which is why Argo's diff never fired and the box
+#      never rolled (roll-c5-image-digest, quoted in kit's
+#      `chart.reusable.yml`).
+#   3. THE OTHER RENDER: no digest falls back to the committed tag
+#      `repository:tag` — the arm an unpublished chart takes, and the arm
+#      kit's `pin the image by digest` inserts the field ahead of. It also
+#      refuses to render a bare `repository@`, which is what interpolating
+#      an absent digest unconditionally would produce.
+#   4. A MALFORMED DIGEST IS REFUSED, NOT RENDERED. The kit pin step
+#      refuses anything that is not `sha256:<64 lowercase hex>` before it
+#      writes the field; the template mirrors it by FAILING the render and
+#      naming `image.digest`. `repository@not-a-digest` renders nothing a
+#      registry answers while looking like a pin, so it is never a render
+#      this chart produces. Three shapes: not a digest at all, a `sha256:`
+#      prefix with the wrong length, and the right length with a non-hex
+#      character.
+#   5. `helm lint` passes.
+#   6. The committed values.yaml itself carries a real digest — asserted
+#      here, and statically in `bin/gate`, because an empty committed value
+#      would make assertion 1 match a render with an empty digest, which is
+#      exactly how a check passes because the field is absent.
+#
+# set -euo pipefail is the whole mechanism — no error handling to forget.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+CHART=chart
+failures=0
+
+note() { printf '\n== %s\n' "$*"; }
+ok()   { printf 'ok   - %s\n' "$*"; }
+bad()  { printf 'FAIL - %s\n' "$*"; failures=$((failures + 1)); }
+
+# assert <description> <fixed string wanted> <haystack>
+assert() {
+  if printf '%s' "$3" | grep -qF -- "$2"; then
+    ok "$1"
+  else
+    bad "$1 — wanted: $2"
+  fi
+}
+
+# assert_absent <description> <fixed string unwanted> <haystack>
+assert_absent() {
+  if printf '%s' "$3" | grep -qF -- "$2"; then
+    bad "$1 — unwanted: $2"
+  else
+    ok "$1"
+  fi
+}
+
+# deployment_doc [helm args...] — the rendered Deployment document, extracted
+# from a full render: from the source comment to the next document separator.
+# Empty means the Deployment did not render at all.
+deployment_doc() {
+  helm template keyholder "$CHART" "$@" 2>&1 | awk '
+    /^# Source: keyholder\/templates\/deployment\.yaml$/ { f=1 }
+    f && /^---$/ { exit }
+    f { print }
+  '
+}
+
+note "1. committed values — the Deployment pulls the published image by digest"
+# DERIVED, not typed: kit's image workflow pushes to ghcr.io/<github.repository>
+# and takes no input for the name, so the expected path comes from this
+# repository's own go.mod module path. A hostless value is the measured failure.
+module_path="$(sed -n 's/^module[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p' go.mod | head -n1)"
+published="ghcr.io/${module_path#github.com/}"
+app_version="$(sed -n 's/^appVersion:[[:space:]]*//p' "$CHART/Chart.yaml" | head -n1 | tr -d "\"'")"
+# The digest, READ from the same values.yaml the Deployment renders: a check
+# that typed its own digest would be a copy of the value, not a reading of it.
+image_digest="$(sed -n 's/^  digest:[[:space:]]*//p' "$CHART/values.yaml" | head -n1 | tr -d "\"'")"
+
+doc=$(deployment_doc)
+if [ -z "$doc" ]; then
+  bad "helm template renders the Deployment with the committed values — it did not"
+else
+  ok "helm template renders the Deployment with the committed values"
+fi
+
+# THE ABSENCE IS THE FAILURE, NAMED FIRST. With an empty digest the assertion
+# below would MATCH the broken render — `image: "$published@"` — and a check
+# that passes because the field is absent is worse than no check.
+if [ -z "$image_digest" ]; then
+  bad "values.yaml names no image.digest — the Deployment would render '$published@', a reference no registry answers"
+  image_digest="sha256:$(printf '%064d' 0)"
+else
+  ok "values.yaml names image.digest $image_digest"
+fi
+assert "the container image is the published repository at the committed digest" \
+  "image: \"$published@$image_digest\"" "$doc"
+assert_absent "the container image is NOT named by the mutable tag" \
+  "image: \"$published:$app_version\"" "$doc"
+
+note "2. a changed digest changes the rendered image — the diff Argo reads"
+changed="sha256:$(printf '%064d' 1)"
+doc=$(deployment_doc --set image.digest="$changed")
+assert "a changed digest changes the rendered image (the diff Argo reads)" \
+  "image: \"$published@$changed\"" "$doc"
+assert_absent "the committed digest is gone from the changed render" \
+  "image: \"$published@$image_digest\"" "$doc"
+
+note "3. the other render: no digest falls back to the committed tag"
+doc=$(deployment_doc --set image.digest="")
+assert "no digest falls back to the committed tag" \
+  "image: \"$published:$app_version\"" "$doc"
+assert_absent "no digest does NOT render a bare 'repository@'" \
+  "image: \"$published@\"" "$doc"
+
+note "4. a malformed digest is refused, not rendered"
+# The red control: the render must FAIL, and a render that succeeded would be
+# a chart shipping `repository@nonsense` — the defect the kit step exists to
+# prevent.
+for shape in not-a-digest sha256:abc "sha256:$(printf '%063d' 0)z"; do
+  if helm template keyholder "$CHART" --set "image.digest=$shape" >/dev/null 2>&1; then
+    bad "a malformed digest is refused — '$shape' rendered instead"
+  else
+    ok "a malformed digest is refused: $shape"
+  fi
+  err="$(helm template keyholder "$CHART" --set "image.digest=$shape" 2>&1 || true)"
+  assert "the refusal for '$shape' names image.digest" "image.digest" "$err"
+done
+
+note "5. helm lint"
+if helm lint "$CHART" >/dev/null 2>&1; then
+  ok "helm lint passes"
+else
+  bad "helm lint failed"
+fi
+
+printf '\n'
+if [ "$failures" -gt 0 ]; then
+  printf '== chart test: %d failure(s)\n' "$failures"
+  exit 1
+fi
+printf '== chart test ok\n'

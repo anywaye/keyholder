@@ -23,7 +23,46 @@ spec:
         - name: {{ .Values.imagePullSecrets }}
       containers:
         - name: keyholder
+          # THE IMAGE IS NAMED BY DIGEST WHEN THERE IS ONE, AND BY TAG WHEN
+          # THERE IS NOT — a two-render conditional, and each arm is a
+          # measured failure avoided.
+          #
+          # `repository@digest` is the arm a PUBLISHED chart takes. The tag
+          # is a release constant overwritten on every master push, so a
+          # Deployment rendered `repository:tag` is textually IDENTICAL
+          # before and after a new build: Argo's diff reported `Synced`,
+          # rolled nothing, and the box kept the old image while the registry
+          # held the new one — measured across the fleet
+          # (roll-c5-image-digest, quoted in kit's `chart.reusable.yml`). A
+          # digest cannot move, so the rendered text changes when the image
+          # changes and Argo rolls the Deployment. The value is written by
+          # the publish workflow, from the image job's build output, BEFORE
+          # `helm package`, and the committed digest in values.yaml is what
+          # a fresh clone renders.
+          #
+          # `repository:tag` is the arm an UNPUBLISHED chart takes. An empty
+          # digest interpolated unconditionally would render `repository@` —
+          # a reference no registry answers — so absence falls back to the
+          # tag rather than stamp a broken name. Kit's `pin the image by
+          # digest` INSERTS the field on a chart that has not adopted it yet,
+          # so this arm is also what the first publish renders before there
+          # is a digest to write.
+          #
+          # A MALFORMED DIGEST IS REFUSED, NOT RENDERED. The kit step refuses
+          # anything that is not `sha256:<64 lowercase hex>` before it writes
+          # the field; the template mirrors it rather than render
+          # `repository@nonsense`, which LOOKS like a pin and fails at
+          # image-pull with nothing naming the field. Absent is legitimate —
+          # it falls back to the tag; malformed never is.
+          {{- $digest := .Values.image.digest | default "" }}
+          {{- if $digest }}
+          {{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $digest) }}
+          {{- fail (printf "image.digest is %q, which is not sha256:<64 lowercase hex>. A malformed digest renders a reference no registry answers, so the chart refuses it the way the publish step does. Drop the key to render the committed tag, or set a real sha256 digest." $digest) }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}@{{ $digest }}"
+          {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http

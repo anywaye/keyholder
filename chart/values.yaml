@@ -1,5 +1,30 @@
 image:
   repository: ghcr.io/cafaye/keyholder
+  # THE PIN THAT CANNOT MOVE — the digest of the CURRENT published image,
+  # written here by the publish workflow, from the image job's build output,
+  # BEFORE `helm package`. The fleet's images are published under a release
+  # tag that is overwritten on every master push (`0.1.0` is `appVersion`,
+  # a constant), so a Deployment rendered from the tag alone is textually
+  # IDENTICAL before and after a new build: Argo's diff reported `Synced`,
+  # rolled nothing, and the box kept serving the old image while the registry
+  # held the new one — the measured defect (roll-c5-image-digest, quoted in
+  # kit's `chart.reusable.yml`) that this field exists to close. A digest
+  # cannot move, so a new build is a textual diff Argo rolls, and the chart
+  # version does not have to move to trigger it.
+  #
+  # THE COMMITTED VALUE IS WHAT A FRESH CLONE RENDERS. `helm template` on a
+  # clone with no registry access renders `repository@digest` from this
+  # line. The value is the image `ghcr.io/cafaye/keyholder:0.1.0` held in
+  # the registry when this packet was written — read from the registry with
+  # `docker buildx imagetools inspect`, never typed from a build log — and
+  # it ages on the next publish, which is expected rather than fixed by
+  # hand: the publish run overwrites this line with the digest it just
+  # built, so the OCI chart always names the bytes the registry holds
+  # beside it. The template renders `repository:tag` when this key is empty
+  # (the arm an unpublished chart takes), and refuses a digest that is not
+  # `sha256:<64 lowercase hex>` — the same shape the publish step refuses
+  # before it writes the field.
+  digest: "sha256:6f7355ce010c7ab544aca1a7702bd96c8ca472ad19617132cb99fef8d8303bdc"
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 

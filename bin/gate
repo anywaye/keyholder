@@ -4,14 +4,18 @@
 #
 # The whole verification of this packet, and nothing else is needed: no
 # database, no network, no cluster. It builds the binary, vets the source,
-# lints it the way CI does, formats it, and runs the suite.
+# lints it the way CI does, formats it, runs the suite, and renders the
+# chart to prove the image digest the publish writes reaches the Deployment.
+# (`helm`, the renderer, is the one extra tool that step needs on PATH.)
 #
 #   ./bin/gate          run the whole gate
 #   ./bin/gate --help   this header
 #
 # Exit 0 means: the binary builds, `go vet ./...` is clean, golangci-lint over
-# kit's config is clean, gofmt has nothing to say about the source, and
-# `go test ./...` passes. Anything else is nonzero with the failing step named.
+# kit's config is clean, gofmt has nothing to say about the source,
+# `go test ./...` passes, and the chart renders the published image by the
+# committed digest — and refuses one that is malformed. Anything else is
+# nonzero with the failing step named.
 
 set -euo pipefail
 
@@ -106,4 +110,67 @@ fi
 echo "== test =="
 go test -count=1 ./... || fail "the suite is red"
 
-printf '\n== gate GREEN: build, vet, lint, fmt, test ==\n'
+echo "== chart =="
+# THE IMAGE DIGEST, STATICALLY AND RENDERED — the half of the publish loop
+# THIS repository owns. kit's `chart.reusable.yml` writes `image.digest`
+# into chart/values.yaml on every publish, from the image job's build
+# output, before `helm package`; the Deployment template renders
+# `repository@digest` from that value. The measured defect the pair closes
+# (roll-c5-image-digest): the tag is a release constant overwritten on
+# every master push, so a chart pinned by tag renders IDENTICAL before and
+# after a build, Argo's diff reports `Synced`, and the box keeps the old
+# image. A digest cannot move, so the render changes and Argo rolls.
+#
+# A step that quietly skipped when helm is absent is the whole defect — a
+# green that verified nothing, exactly as with the linter above — so the
+# binary is required rather than optional. kit pins its own copy at v4.3.0
+# for `helm package`/`helm push`; this step only RENDERS, and the template
+# functions it exercises (`fail`, `regexMatch`, `default`) are stable across
+# helm 3 and 4, so the version is printed for the record rather than pinned
+# to a second value that would red the gate on a runner's own helm.
+values="chart/values.yaml"
+image_digest="$(sed -n 's/^  digest:[[:space:]]*//p' "$values" | head -n1 | tr -d "\"'")"
+if [ -z "$image_digest" ]; then
+  echo "bin/gate: $values sets no image.digest, and the Deployment renders" >&2
+  echo "  its container image from exactly that value. The tag alone is" >&2
+  echo "  mutable — overwritten on every master push — so a chart pinned by" >&2
+  echo "  tag renders IDENTICAL before and after a build and Argo rolls" >&2
+  echo "  nothing. The publish run writes this line; the committed value is" >&2
+  echo "  the pin a fresh clone renders, so it must be real." >&2
+  exit 1
+fi
+case "$image_digest" in
+  sha256:*)
+    # The prefix AND the grammar are both asserted, because a digest that is
+    # merely PREFIXED right is still a reference no registry answers.
+    if ! printf '%s' "$image_digest" | grep -qE '^sha256:[0-9a-f]{64}$'; then
+      echo "bin/gate: $values sets image.digest to \"$image_digest\"," >&2
+      echo "  which is not sha256:<64 hex> — the manifest digest" >&2
+      echo "  chart.reusable.yml writes before helm package. A malformed" >&2
+      echo "  digest is worse than an absent one: it renders" >&2
+      echo "  repository@nonsense, which LOOKS like a pin and fails at" >&2
+      echo "  image-pull with nothing naming this field. bin/chart-test" >&2
+      echo "  proves the render refuses it; this step refuses the commit." >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "bin/gate: $values sets image.digest to \"$image_digest\"," >&2
+    echo "  which carries no sha256: prefix — the manifest digest" >&2
+    echo "  chart.reusable.yml writes before helm package. Drop the key to" >&2
+    echo "  render the committed tag, or set a real sha256 digest." >&2
+    exit 1
+    ;;
+esac
+echo "chart image: $values pins image.digest $image_digest — immutable, so a new build is a textual diff Argo rolls"
+if ! command -v helm >/dev/null 2>&1; then
+  echo "bin/gate: helm is not on PATH — bin/chart-test renders the chart with it." >&2
+  echo "  kit's publish path pins v4.3.0 (get-helm-3 --version v4.3.0); install" >&2
+  echo "  that, or any helm that renders, and re-run. Skipping the render is a" >&2
+  echo "  green that verified nothing." >&2
+  exit 127
+fi
+echo "helm version: $(helm version --short 2>&1 | head -n1)"
+./bin/chart-test || fail "the chart does not render the published image two ways"
+
+printf '\n== gate GREEN: build, vet, lint, fmt, test, chart ==\n'
