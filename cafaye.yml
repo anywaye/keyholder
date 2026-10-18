@@ -53,6 +53,12 @@ dependencies:
 # The App whose key this service holds is registered separately and its
 # id/installation id arrive in the environment (see cmd/keyholder).
 
+env:
+  - name: PORT
+    required: false
+    secret: false
+    description: "Listen port."
+
 repository:
   url: git@github.com:cafaye/keyholder.git
   visibility: private
