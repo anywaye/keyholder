@@ -75,7 +75,7 @@ that, twice:
 
 A GitHub App private key is a secret-shaped value, so (a) asks a service to
 cross a boundary it wrote down. The previous packet's report
-(`REPORT-repair-h-registry-pull.md` in `box`) already declined to hold one "for
+(`REPORT-repair-h-registry-pull` in `box`) already declined to hold one "for
 boundary 6 and this packet's own avoid list". Doing it now behind a route
 instead of in a route changes nothing about who holds the key.
 
