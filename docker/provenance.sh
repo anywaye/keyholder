@@ -35,7 +35,7 @@
 #      Dockerfile every build path goes through.
 #
 #   2. A buildx PROVENANCE ATTESTATION. `provenance: mode=max` is already on in
-#      `.github/workflows/image.reusable.yml`, so an attestation exists for
+#      `ci/image.reusable.yml`, so an attestation exists for
 #      images built by that workflow — and it is the wrong answer for a
 #      CONSUMER. Reading one is `docker buildx imagetools inspect` or
 #      `docker attestation verify`, both of which fetch a REFERREER from the
