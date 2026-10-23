@@ -1,4 +1,4 @@
-module github.com/cafaye/keyholder
+module github.com/anywaye/keyholder
 
 // The same toolchain number `gateway/go.mod`, `identity/go.mod` and
 // `pantry/go.mod` already state. Nothing makes the go command read a version

@@ -13,7 +13,7 @@ import (
 func TestLoadConfigReadsTheDocumentedEnvironment(t *testing.T) {
 	clearEnv(t)
 
-	t.Setenv(EnvBoxURL, "https://box.svc.cafaye.test")
+	t.Setenv(EnvBoxURL, "https://box.svc.anywaye.test")
 	t.Setenv(EnvGitHubAppID, "123456")
 	t.Setenv(EnvGitHubInstallationID, "987654")
 	t.Setenv(EnvGitHubAPIURL, "https://api.github.test/")
@@ -24,7 +24,7 @@ func TestLoadConfigReadsTheDocumentedEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the documented environment should load: %v", err)
 	}
-	if config.BoxURL != "https://box.svc.cafaye.test" {
+	if config.BoxURL != "https://box.svc.anywaye.test" {
 		t.Errorf("box url: got %q", config.BoxURL)
 	}
 	if config.GitHubAppID != "123456" || config.GitHubInstallationID != "987654" {
@@ -43,7 +43,7 @@ func TestLoadConfigReadsTheDocumentedEnvironment(t *testing.T) {
 
 func TestLoadConfigDefaultsThePortAndTheRegistryHost(t *testing.T) {
 	clearEnv(t)
-	t.Setenv(EnvBoxURL, "https://box.svc.cafaye.test")
+	t.Setenv(EnvBoxURL, "https://box.svc.anywaye.test")
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -71,7 +71,7 @@ func TestLoadConfigRefusesWithoutABoxURL(t *testing.T) {
 
 func TestLoadConfigRefusesAPortThatIsNotAPort(t *testing.T) {
 	clearEnv(t)
-	t.Setenv(EnvBoxURL, "https://box.svc.cafaye.test")
+	t.Setenv(EnvBoxURL, "https://box.svc.anywaye.test")
 	t.Setenv(EnvPort, "nine thousand")
 
 	if _, err := LoadConfig(); err == nil {
@@ -109,7 +109,7 @@ func TestTheAppKeyPrefersAMountedFileOverTheEnvironment(t *testing.T) {
 
 func TestNewTokenMinterRefusesRatherThanDyingOnAMisconfiguredAuthority(t *testing.T) {
 	clearEnv(t)
-	t.Setenv(EnvBoxURL, "https://box.svc.cafaye.test")
+	t.Setenv(EnvBoxURL, "https://box.svc.anywaye.test")
 
 	config, err := LoadConfig()
 	if err != nil {

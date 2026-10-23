@@ -180,7 +180,7 @@ func (a *Authority) InstallationToken(ctx context.Context) (*Minted, error) {
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	request.Header.Set("User-Agent", "cafaye-keyholder")
+	request.Header.Set("User-Agent", "anywaye-keyholder")
 
 	response, err := a.client.Do(request)
 	if err != nil {

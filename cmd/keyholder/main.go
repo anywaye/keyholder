@@ -8,9 +8,9 @@
 //
 // Usage:
 //
-//	REGISTRY_BOX_URL=https://box.svc.cafaye.test \
+//	REGISTRY_BOX_URL=https://box.svc.anywaye.test \
 //	REGISTRY_GITHUB_APP_ID=123456 \
-//	REGISTRY_GITHUB_APP_KEY_FILE=/var/run/secrets/cafaye/app-key.pem \
+//	REGISTRY_GITHUB_APP_KEY_FILE=/var/run/secrets/anywaye/app-key.pem \
 //	REGISTRY_GITHUB_INSTALLATION_ID=987654 \
 //	keyholder
 //
@@ -29,7 +29,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cafaye/keyholder/internal/registry"
+	"github.com/anywaye/keyholder/internal/registry"
 )
 
 func main() {

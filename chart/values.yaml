@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/cafaye/keyholder
+  repository: ghcr.io/anywaye/keyholder
   # THE PIN THAT CANNOT MOVE — the digest of the CURRENT published image,
   # written here by the publish workflow, from the image job's build output,
   # BEFORE `helm package`. The fleet's images are published under a release
@@ -14,7 +14,7 @@ image:
   #
   # THE COMMITTED VALUE IS WHAT A FRESH CLONE RENDERS. `helm template` on a
   # clone with no registry access renders `repository@digest` from this
-  # line. The value is the image `ghcr.io/cafaye/keyholder:0.1.0` held in
+  # line. The value is the image `ghcr.io/anywaye/keyholder:0.1.0` held in
   # the registry when this packet was written — read from the registry with
   # `docker buildx imagetools inspect`, never typed from a build log — and
   # it ages on the next publish, which is expected rather than fixed by
@@ -43,7 +43,7 @@ ingress:
   className: traefik
   clusterIssuer: letsencrypt-prod
   tls: true
-  host: registry.svc.cafaye.com
+  host: registry.svc.anywaye.com
   path: /
   pathType: Prefix
 

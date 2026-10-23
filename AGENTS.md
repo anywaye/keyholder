@@ -11,7 +11,7 @@ for a short-lived, pull-only dockerconfigjson. Go service.
 ## Where things live
 - Source: `cmd/`, `internal/`, `migrations/`
 - Chart: `chart/`
-- Manifest: `cafaye.yml`
+- Manifest: `anywaye.yml`
 
 ## Conventions
 - Secrets: no `.env` files with values. Use `cafe secret set/get/list` (dev) and `cafe dev` (injects). Manifests declare env vars via `env:` block. See `docs/secrets.md`.

@@ -73,10 +73,10 @@
 #   source            org.opencontainers.image.source      owner/repo
 #   revision          org.opencontainers.image.revision    40 hex
 #   built_at          org.opencontainers.image.created     RFC3339 UTC
-#   source_dirty      com.cafaye.kit.source.dirty          clean|dirty
-#   template_version  com.cafaye.kit.template.version      vN.N.N
+#   source_dirty      com.anywaye.kit.source.dirty          clean|dirty
+#   template_version  com.anywaye.kit.template.version      vN.N.N
 #
-# Three are standard OCI keys, so a tool that knows nothing about cafaye reads
+# Three are standard OCI keys, so a tool that knows nothing about anywaye reads
 # them. Two are kit's own namespace, which is the whole of the private surface.
 #
 # WHAT IS DELIBERATELY ABSENT, because each was tempting:
@@ -109,7 +109,7 @@
 # Measured consequences, each refused BY SHAPE and not by keyword (a keyword
 # denylist is what a secret scanner is, and what lets the next novel shape through):
 #
-#   kaka@cafaye.com            an email. No grammar in the set admits `@`.
+#   kaka@anywaye.com            an email. No grammar in the set admits `@`.
 #   a branch name              ASYMMETRIC, and stated rather than papered over.
 #                              `worker/kit-provenance-01` is shape-IDENTICAL to
 #                              `owner/repo`, so no grammar can refuse it in the
@@ -364,7 +364,7 @@ _verify_got() {
 #   4  the image carries NO labels at all. Unchanged, and LOAD-BEARING.
 #   5  an expectation the CALLER GAVE was not met (`--expect-revision`,
 #      `--expect-source`, or an `unknown`/absent answer to one)
-#   6  the labels are present and are NOT a valid cafaye stamp: a field violates
+#   6  the labels are present and are NOT a valid anywaye stamp: a field violates
 #      its own grammar, a field that identifies the build is absent, or the
 #      stamp carries nothing in kit's own namespace
 #
@@ -393,8 +393,8 @@ emit_verify() {
   got_rev="$(printf '%s' "$labels" | sed -n 's/.*"org\.opencontainers\.image\.revision":"\([^"]*\)".*/\1/p')"
   got_src="$(printf '%s' "$labels" | sed -n 's/.*"org\.opencontainers\.image\.source":"\([^"]*\)".*/\1/p')"
   got_at="$(printf '%s' "$labels" | sed -n 's/.*"org\.opencontainers\.image\.created":"\([^"]*\)".*/\1/p')"
-  got_dirty="$(printf '%s' "$labels" | sed -n 's/.*"com\.cafaye\.kit\.source\.dirty":"\([^"]*\)".*/\1/p')"
-  got_tv="$(printf '%s' "$labels" | sed -n 's/.*"com\.cafaye\.kit\.template\.version":"\([^"]*\)".*/\1/p')"
+  got_dirty="$(printf '%s' "$labels" | sed -n 's/.*"com\.anywaye\.kit\.source\.dirty":"\([^"]*\)".*/\1/p')"
+  got_tv="$(printf '%s' "$labels" | sed -n 's/.*"com\.anywaye\.kit\.template\.version":"\([^"]*\)".*/\1/p')"
 
   printf 'provenance: %s\n' "$image"
   printf '  source:           %s\n' "${got_src:-<absent>}"
@@ -449,7 +449,7 @@ emit_verify() {
   done
 
   if [ -n "$bad_shape" ] || [ -n "$absent_hard" ]; then
-    printf '%s: FAIL %s carries labels, and they are not a cafaye provenance stamp.\n' "$PROG" "$image" >&2
+    printf '%s: FAIL %s carries labels, and they are not a anywaye provenance stamp.\n' "$PROG" "$image" >&2
     for f in $bad_shape; do
       printf '%s:   %-16s = "%s" — it must be %s\n' "$PROG" "$f" "$(_verify_got "$f")" "$(expect_$f)" >&2
     done
@@ -474,7 +474,7 @@ emit_verify() {
   # `org.opencontainers.image.*` is the STANDARD half of the format and every
   # published base image sets it — `oven/bun` sets source, revision and created,
   # and an image built `FROM oven/bun` carries them whether or not anybody built
-  # it. `com.cafaye.kit.*` is kit's OWN namespace, and a base image cannot supply
+  # it. `com.anywaye.kit.*` is kit's OWN namespace, and a base image cannot supply
   # it by accident. So the ABSENCE of kit's namespace is evidence of
   # non-authorship, and its presence is evidence of nothing in particular: anyone
   # who wants to forge a label can, and a format cannot defend against that. The
@@ -485,11 +485,11 @@ emit_verify() {
   # this?", and one value in the private namespace answers it; requiring both
   # would be a second copy of `tests/provenance_test.sh` part B's five-key
   # agreement check, and a check that is a copy of another check goes red twice
-  # for one cause. Measured: this is the branch `cafaye/gateway:e2e` takes.
+  # for one cause. Measured: this is the branch `anywaye/gateway:e2e` takes.
   if [ -z "$got_dirty" ] && [ -z "$got_tv" ]; then
     printf '%s: FAIL %s carries only org.opencontainers.image.*, so those labels came from the BASE\n' "$PROG" "$image" >&2
     printf '%s:   IMAGE it was built FROM and not from a kit Dockerfile: nothing here set\n' "$PROG" >&2
-    printf '%s:   com.cafaye.kit.*, and that namespace is the one part of a stamp a third-party\n' "$PROG" >&2
+    printf '%s:   com.anywaye.kit.*, and that namespace is the one part of a stamp a third-party\n' "$PROG" >&2
     printf '%s:   base image cannot supply by accident.\n' "$PROG" >&2
     printf '%s:   source reads "%s" — whoever built that base image, it is not us.\n' "$PROG" "${got_src:-<absent>}" >&2
     printf '%s:   Pass --expect-source owner/repo to assert the repository as well.\n' "$PROG" >&2
@@ -599,7 +599,7 @@ case "$cmd" in
     [ -n "$v_image" ] || { printf '%s: --verify needs an image reference\n' "$PROG" >&2; exit 64; }
     # `--expect-source` is itself a stamp value, so it is checked against the
     # SOURCE GRAMMAR before it is used to judge anything. A caller that writes
-    # `--expect-source https://github.com/cafaye/kit` would otherwise get a
+    # `--expect-source https://github.com/anywaye/kit` would otherwise get a
     # mismatch against a correctly stamped image and read it as tampering.
     if [ -n "$v_expect_src" ]; then
       _es="$v_expect_src"

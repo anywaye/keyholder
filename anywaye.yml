@@ -1,6 +1,6 @@
-# cafaye.yml — the cafaye project manifest for keyholder.
+# anywaye.yml — the anywaye project manifest for keyholder.
 #
-# Conforms to core's frozen schema (cafaye/core: schemas/cafaye.manifest.schema.json).
+# Conforms to core's frozen schema (anywaye/core: schemas/anywaye.manifest.schema.json).
 # Records the shape this service is built against; what it cannot express is
 # written down here rather than fudged.
 #
@@ -10,21 +10,21 @@
 #
 # It was named `registry` when this packet shipped and renamed to `keyholder`
 # in the same packet that reimplemented it in Go: the repository is
-# `cafaye/keyholder`, and a manifest whose `name` disagrees with its repository
+# `anywaye/keyholder`, and a manifest whose `name` disagrees with its repository
 # is a manifest `pantry` resolves wrong. `registry` stays where it means the
 # registry the credential is FOR — ghcr.io, `registry.pull`, "registry
 # credential" — because that is a different noun from the service holding the
 # material.
 name: keyholder
 # One sentence on what the service is for, ≤200 characters — that cap is core's
-# schema, and `caf contract lint cafaye.yml` is the check that enforces it (the
+# schema, and `caf contract lint anywaye.yml` is the check that enforces it (the
 # first draft of this file was 205 and the linter said so).
-description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the fleet's only registry material."
+description: "Anywaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson, and holds the fleet's only registry material."
 language: go
 
 core: ^0.2.0
 
-# ABSENT, for the same reason box's manifest records (box/cafaye.yml): the only
+# ABSENT, for the same reason box's manifest records (box/anywaye.yml): the only
 # OpenAPI document in the fleet that would describe this surface does not exist
 # yet, and naming a path that is not true is worse than omitting one. The
 # contract is in README.md and is asserted by the suite; an
@@ -48,7 +48,7 @@ dependencies:
     version: ^0.1.0
     required: true
 
-# GitHub is not a cafaye service and so is not a manifest dependency: it is an
+# GitHub is not a anywaye service and so is not a manifest dependency: it is an
 # upstream authority, the way PostgreSQL is for every service in the fleet.
 # The App whose key this service holds is registered separately and its
 # id/installation id arrive in the environment (see cmd/keyholder).
@@ -60,9 +60,9 @@ env:
     description: "Listen port."
 
 repository:
-  url: git@github.com:cafaye/keyholder.git
+  url: git@github.com:anywaye/keyholder.git
   visibility: private
 
 owner:
   team: keyholder
-  contact: keyholder@cafaye.com
+  contact: keyholder@anywaye.com

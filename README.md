@@ -1,6 +1,6 @@
 > **This file is the argument.** It is written before the code is read, because
 
-**Current direction (2026-10-19):** Ship is the product. The cafaye stack is internal infrastructure; we are not selling or supporting it as a standalone product as of this date. We continue to develop and improve it, treating the founder as the primary customer and keeping "build once, run everywhere" true, with the expectation that it may be offered again later.
+**Current direction (2026-10-19):** Ship is the product. The anywaye stack is internal infrastructure; we are not selling or supporting it as a standalone product as of this date. We continue to develop and improve it, treating the founder as the primary customer and keeping "build once, run everywhere" true, with the expectation that it may be offered again later.
 > the one judgement call in this packet — where the exchange lives — is the
 > thing a successor most needs to be able to disagree with on purpose. The
 > sections below it are the record.
@@ -80,7 +80,7 @@ boundary 6 and this packet's own avoid list". Doing it now behind a route
 instead of in a route changes nothing about who holds the key.
 
 There is a second, quieter reason: a route on `box` would make the credential's
-lifetime a property of the *control plane*, which is Cafaye-side, while the
+lifetime a property of the *control plane*, which is Anywaye-side, while the
 box it is minted for is the thing being installed. Keeping them apart is what
 lets `registry` be the only process that can hand out a pull credential, so an
 audit of the fleet's registry material is one process, not a control plane with
@@ -184,9 +184,9 @@ credential is minted per request and never stored.
 ## Running it
 
 ```sh
-export REGISTRY_BOX_URL=https://box.svc.cafaye.test
+export REGISTRY_BOX_URL=https://box.svc.anywaye.test
 export REGISTRY_GITHUB_APP_ID=123456
-export REGISTRY_GITHUB_APP_KEY_FILE=/var/run/secrets/cafaye/app-key.pem
+export REGISTRY_GITHUB_APP_KEY_FILE=/var/run/secrets/anywaye/app-key.pem
 export REGISTRY_GITHUB_INSTALLATION_ID=987654
 ./bin/keyholder            # or: go run ./cmd/keyholder
 ```

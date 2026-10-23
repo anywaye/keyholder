@@ -3,4 +3,4 @@ name: keyholder
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-description: "Cafaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson."
+description: "Anywaye's registry-credential exchange: it trades a box-bound, purpose-bound registry.pull capability for a short-lived, pull-only dockerconfigjson."
