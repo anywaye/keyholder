@@ -49,6 +49,8 @@ ingress:
 
 env:
   PORT: "9292"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy.observability:4318"
+  OTEL_SERVICE_NAME: "keyholder"
 
 resources:
   requests:
