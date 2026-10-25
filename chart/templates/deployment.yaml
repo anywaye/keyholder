@@ -18,6 +18,10 @@ spec:
         app.kubernetes.io/name: keyholder
         app.kubernetes.io/instance: keyholder
         app.kubernetes.io/managed-by: caf
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9292"
+        prometheus.io/path: "/metrics"
     spec:
       imagePullSecrets:
         - name: {{ .Values.imagePullSecrets }}

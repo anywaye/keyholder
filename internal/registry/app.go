@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +44,7 @@ func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.health)
 	mux.HandleFunc("GET /health", a.health)
+	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.HandleFunc("POST /v1/registry-credentials", a.exchange)
 	mux.HandleFunc("/", a.notFound)
 	return mux
